@@ -1,0 +1,37 @@
+- case: basic_int_and_string_fields
+  main: |
+    from oslo_versionedobjects import base as ovo_base
+    from oslo_versionedobjects import fields
+
+    @ovo_base.VersionedObjectRegistry.objectify
+    class MyOvo(ovo_base.VersionedObject):
+        fields = {
+            'id': fields.IntegerField(),
+            'name': fields.StringField(),
+        }
+
+        def do_stuff(self) -> None:
+            self.name = 42  # E: Incompatible types in assignment (expression has type "int", variable has type "str")
+
+    myobj: MyOvo
+
+    reveal_type(myobj.id)  # N: Revealed type is 'builtins.int'
+    reveal_type(myobj.name)  # N: Revealed type is 'builtins.str'
+
+    myobj.id = "bob"  # E: Incompatible types in assignment (expression has type "str", variable has type "int")
+
+# TODO(gibi): work on complex types
+- case: complex_types_are_resolved_to_any
+  main: |
+    from oslo_versionedobjects import base as ovo_base
+    from oslo_versionedobjects import fields
+
+    @ovo_base.VersionedObjectRegistry.objectify
+    class MyOvo(ovo_base.VersionedObject):
+        fields = {
+            'list_of_ints': fields.ListOfIntegersField(),
+        }
+
+    myobj: MyOvo
+    reveal_type(myobj.list_of_ints)  # N: Revealed type is 'Any'
+
