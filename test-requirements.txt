@@ -1,7 +1,6 @@
 oslotest
 stestr
-pytest
-pytest-mypy-plugins
 black
 flake8
 hacking
+oslo.versionedobjects

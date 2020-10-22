@@ -76,16 +76,29 @@ class OsloVersionedObjectPlugin(plugin.Plugin):
         self, ctx: plugin.ClassDefContext, ovo_field_type_name: str
     ) -> types.Type:
 
-        field_type: types.Type = types.AnyType(
-            types.TypeOfAny.implementation_artifact
-        )
-        # TODO(gibi): handle all the field types
-        if ovo_field_type_name == "IntegerField":
-            field_type = ctx.api.builtin_type("builtins.int")
-        if ovo_field_type_name == "StringField":
-            field_type = ctx.api.builtin_type("builtins.str")
+        try:
+            field_symbol = ctx.api.lookup_qualified(
+                ovo_field_type_name, ctx.cls
+            )
+            assert field_symbol is not None
+            assert field_symbol.node is not None
+            assert isinstance(field_symbol.node, nodes.TypeInfo)
+            assert "AUTO_TYPE" in field_symbol.node.names
+            assert field_symbol.node.names["AUTO_TYPE"] is not None
+            assert isinstance(
+                field_symbol.node.names["AUTO_TYPE"].node, nodes.Var
+            )
+            assert field_symbol.node.names["AUTO_TYPE"].node.type is not None
 
-        return field_type
+            return field_symbol.node.names["AUTO_TYPE"].node.type
+        except Exception as e:
+            self.log(
+                "looking up %s got exception %s"
+                % (ovo_field_type_name, str(e))
+            )
+
+        # defaults to Any if the stub is incomplete
+        return types.AnyType(types.TypeOfAny.implementation_artifact)
 
     def _add_ovo_members_to_class(
         self, ctx: plugin.ClassDefContext, fields_def: nodes.DictExpr
@@ -108,7 +121,8 @@ class OsloVersionedObjectPlugin(plugin.Plugin):
             # TODO(gibi): make these proper errors
             assert isinstance(v, nodes.CallExpr)
             assert isinstance(v.callee, nodes.MemberExpr)
-            field_type_name = v.callee.name
+            assert isinstance(v.callee.expr, nodes.NameExpr)
+            field_type_name = v.callee.expr.name + "." + v.callee.name
 
             field_type = self._get_python_type_from_ovo_field_type(
                 ctx, field_type_name
