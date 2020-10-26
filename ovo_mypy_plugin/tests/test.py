@@ -10,14 +10,27 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import contextlib
 import os.path
 import unittest
 
 from mypy import api
 
 
+@contextlib.contextmanager
+def set_env(new_env_dict):
+    """Temporarily set the process environment variables"""
+    old_environ = dict(os.environ)
+    os.environ.update(new_env_dict)
+    try:
+        yield
+    finally:
+        os.environ.clear()
+        os.environ.update(old_environ)
+
+
 class MypyTestCase(unittest.TestCase):
-    mypy_config = os.path.dirname(__file__) + "/../../mypy_test.ini"
+    mypy_config = os.path.dirname(__file__) + "/mypy_test.ini"
 
     def run_mypy(self, code):
         stdout, stderr, retcode = api.run(
@@ -43,7 +56,7 @@ myobj: MyOvo
 """
 
 
-class OvoMypyTests(MypyTestCase):
+class OvoMypyFieldTests(MypyTestCase):
     def test_basic_field_types_are_inferred(self):
         self.assertIn(
             "Revealed type is 'builtins.int",
@@ -79,4 +92,99 @@ class OvoMypyTests(MypyTestCase):
         self.assertIn(
             '"MyOvo" has no attribute "nonexistent"',
             self.run_mypy(SIMPLE_OVO + "myobj.nonexistent = 12"),
+        )
+
+
+INDIRECT_BASE = """
+from oslo_versionedobjects import base as ovo_base
+from oslo_versionedobjects import fields
+
+class MyBase(ovo_base.VersionedObject):
+    pass
+
+class MyOvo(MyBase):
+    fields = {
+        'id': fields.IntegerField(),
+    }
+
+myobj: MyOvo
+"""
+
+
+INDIRECT_DECORATOR = """
+from oslo_versionedobjects import base as ovo_base
+from oslo_versionedobjects import fields
+
+my_decorator = ovo_base.VersionedObjectRegistry.objectify
+
+class MyBase(ovo_base.VersionedObject):
+    pass
+
+@my_decorator
+class MyOvo(MyBase):
+    fields = {
+        'id': fields.IntegerField(),
+    }
+
+myobj: MyOvo
+"""
+
+
+class OvoMypyConfigTests(MypyTestCase):
+    def test_base_class_can_be_defined_in_the_env(self):
+        self.assertNotIn(
+            "Revealed type is 'builtins.int",
+            self.run_mypy(INDIRECT_BASE + "reveal_type(myobj.id)"),
+        )
+
+        with set_env({"OVO_MYPY_BASE_CLASSES": "MyBase"}):
+            self.assertIn(
+                "Revealed type is 'builtins.int",
+                self.run_mypy(INDIRECT_BASE + "reveal_type(myobj.id)"),
+            )
+
+    def test_decorator_class_can_be_defined_in_the_env(self):
+        self.assertNotIn(
+            "Revealed type is 'builtins.int",
+            self.run_mypy(INDIRECT_DECORATOR + "reveal_type(myobj.id)"),
+        )
+
+        with set_env({"OVO_MYPY_DECORATOR_CLASSES": "my_decorator"}):
+            self.assertIn(
+                "Revealed type is 'builtins.int",
+                self.run_mypy(INDIRECT_DECORATOR + "reveal_type(myobj.id)"),
+            )
+
+
+INHERITED_FIELDS = """
+from oslo_versionedobjects import base as ovo_base
+from oslo_versionedobjects import fields
+
+@ovo_base.VersionedObjectRegistry.objectify
+class IdBase(ovo_base.VersionedObject):
+    fields = {
+        'id': fields.IntegerField(),
+    }
+
+@ovo_base.VersionedObjectRegistry.objectify
+class MyOvo(IdBase):
+    fields = {
+        'name': fields.StringField(),
+    }
+
+
+myobj: MyOvo
+"""
+
+
+class OvoInheritanceTests(MypyTestCase):
+    def test_inherited_fields_are_known(self):
+        self.assertIn(
+            "Revealed type is 'builtins.int",
+            self.run_mypy(INHERITED_FIELDS + "reveal_type(myobj.id)"),
+        )
+
+        self.assertIn(
+            "Revealed type is 'builtins.str",
+            self.run_mypy(INHERITED_FIELDS + "reveal_type(myobj.name)"),
         )

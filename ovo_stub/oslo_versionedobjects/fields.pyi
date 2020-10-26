@@ -1,6 +1,9 @@
-from typing import List
+from typing import List, Any
 
 def __getattr__(name: str) -> Any: ...  # incomplete
+
+class AutoTypedField:
+    ...
 
 class IntegerField(AutoTypedField):
     MYPY_TYPE: int

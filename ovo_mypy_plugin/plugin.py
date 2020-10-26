@@ -9,6 +9,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import os
 
 from mypy import nodes
 from mypy import plugin
@@ -30,10 +31,22 @@ class OsloVersionedObjectPlugin(plugin.Plugin):
     to the class definition.
     """
 
+    def __init__(self, options: plugin.Options) -> None:
+        super().__init__(options)
+
     def get_class_decorator_hook(self, fullname: str):
-        # TODO(gibi): make this configurable for cases when the project
-        # specific registry is used
-        if "VersionedObjectRegistry" in fullname:
+        dec_classes = os.environ.get(
+            "OVO_MYPY_DECORATOR_CLASSES", "VersionedObjectRegistry"
+        )
+        if any(dec_class in fullname for dec_class in dec_classes.split()):
+            return self.generate_ovo_field_defs
+        return None
+
+    def get_base_class_hook(self, fullname: str):
+        base_classes = os.environ.get(
+            "OVO_MYPY_BASE_CLASSES", "VersionedObject"
+        )
+        if any(base_class in fullname for base_class in base_classes.split()):
             return self.generate_ovo_field_defs
         return None
 
