@@ -115,14 +115,6 @@ class OsloVersionedObjectPlugin(plugin.Plugin):
                 "looking up %s got exception %s"
                 % (ovo_field_type_name, str(e))
             )
-            if not ctx.api.final_iteration:
-                self.log("Calling defer")
-                ctx.api.defer()
-            else:
-                self.log(
-                    "No type definition found in the final run, defaulting "
-                    "to Any"
-                )
 
         # defaults to Any if the stub is incomplete
         return types.AnyType(types.TypeOfAny.implementation_artifact)
