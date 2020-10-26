@@ -1,3 +1,6 @@
+.. image:: https://travis-ci.org/gibizer/ovo-mypy-plugin.svg?branch=main
+    :target: https://travis-ci.org/gibizer/ovo-mypy-plugin
+
 ===============
 ovo-mypy-plugin
 ===============
