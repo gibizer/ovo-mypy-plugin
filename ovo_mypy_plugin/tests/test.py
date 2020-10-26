@@ -50,6 +50,7 @@ class MyOvo(ovo_base.VersionedObject):
         'name': fields.StringField(),
         'temperature': fields.FloatField(),
         'list_of_ints': fields.ListOfIntegersField(),
+        'magic': fields.MagicField(),
     }
 
     def foo(self) -> None:
@@ -85,6 +86,12 @@ class OvoMypyFieldTests(MypyTestCase):
             "Incompatible types in assignment "
             '(expression has type "str", variable has type "int"',
             self.run_mypy(SIMPLE_OVO + "myobj.id = 'bob'"),
+        )
+
+    def test_undefined_type_defaulted_to_any(self):
+        self.assertIn(
+            "Revealed type is 'Any'",
+            self.run_mypy(SIMPLE_OVO + "reveal_type(myobj.magic)"),
         )
 
     def test_non_existent_field_usage_is_caught(self):

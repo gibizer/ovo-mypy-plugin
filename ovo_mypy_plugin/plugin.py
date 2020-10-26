@@ -119,7 +119,10 @@ class OsloVersionedObjectPlugin(plugin.Plugin):
                 self.log("Calling defer")
                 ctx.api.defer()
             else:
-                raise
+                self.log(
+                    "No type definition found in the final run, defaulting "
+                    "to Any"
+                )
 
         # defaults to Any if the stub is incomplete
         return types.AnyType(types.TypeOfAny.implementation_artifact)
