@@ -52,6 +52,9 @@ class MyOvo(ovo_base.VersionedObject):
         'list_of_ints': fields.ListOfIntegersField(),
     }
 
+    def foo(self) -> None:
+        return None
+
 myobj: MyOvo
 """
 
@@ -107,6 +110,9 @@ class MyOvo(MyBase):
         'id': fields.IntegerField(),
     }
 
+    def foo(self) -> None:
+        return None
+
 myobj: MyOvo
 """
 
@@ -125,6 +131,9 @@ class MyOvo(MyBase):
     fields = {
         'id': fields.IntegerField(),
     }
+
+    def foo(self) -> None:
+        return None
 
 myobj: MyOvo
 """
@@ -172,6 +181,8 @@ class MyOvo(IdBase):
         'name': fields.StringField(),
     }
 
+    def foo(self) -> None:
+        return None
 
 myobj: MyOvo
 """

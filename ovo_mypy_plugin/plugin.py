@@ -10,6 +10,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import os
+from typing import Optional
 
 from mypy import nodes
 from mypy import plugin
@@ -50,9 +51,11 @@ class OsloVersionedObjectPlugin(plugin.Plugin):
             return self.generate_ovo_field_defs
         return None
 
-    def _get_fields_dict_expr(self, ctx):
+    def _get_fields_dict_expr(
+        self, ctx: plugin.ClassDefContext
+    ) -> Optional[nodes.DictExpr]:
         # defs is the Block of the class definition
-        fields_assignment = [
+        fields_assignments = [
             statement
             for statement in ctx.cls.defs.body
             if isinstance(statement, nodes.AssignmentStmt) and
@@ -62,8 +65,9 @@ class OsloVersionedObjectPlugin(plugin.Plugin):
         ]
 
         # what if there are more than that?
-        if len(fields_assignment) == 1:
-            fields_assignment = fields_assignment[0]
+        if len(fields_assignments) == 1:
+            fields_assignment = fields_assignments[0]
+            assert isinstance(fields_assignment.rvalue, nodes.DictExpr)
             return fields_assignment.rvalue
 
         return None
@@ -92,8 +96,8 @@ class OsloVersionedObjectPlugin(plugin.Plugin):
     ) -> types.Type:
 
         try:
-            field_symbol = ctx.api.lookup_qualified(
-                ovo_field_type_name, ctx.cls
+            field_symbol = ctx.api.lookup_fully_qualified_or_none(
+                ovo_field_type_name
             )
             assert field_symbol is not None
             assert field_symbol.node is not None
@@ -111,6 +115,11 @@ class OsloVersionedObjectPlugin(plugin.Plugin):
                 "looking up %s got exception %s"
                 % (ovo_field_type_name, str(e))
             )
+            if not ctx.api.final_iteration:
+                self.log("Calling defer")
+                ctx.api.defer()
+            else:
+                raise
 
         # defaults to Any if the stub is incomplete
         return types.AnyType(types.TypeOfAny.implementation_artifact)
@@ -136,8 +145,9 @@ class OsloVersionedObjectPlugin(plugin.Plugin):
             # TODO(gibi): make these proper errors
             assert isinstance(v, nodes.CallExpr)
             assert isinstance(v.callee, nodes.MemberExpr)
-            assert isinstance(v.callee.expr, nodes.NameExpr)
-            field_type_name = v.callee.expr.name + "." + v.callee.name
+            assert v.callee.fullname is not None
+
+            field_type_name = v.callee.fullname
 
             field_type = self._get_python_type_from_ovo_field_type(
                 ctx, field_type_name
