@@ -1,3 +1,4 @@
-from typing import Any
+import typing as ty
 
-def __getattr__(name: str) -> Any: ...  # incomplete
+
+def __getattr__(name: str) -> ty.Any: ...  # incomplete
