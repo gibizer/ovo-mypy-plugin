@@ -206,3 +206,86 @@ class OvoInheritanceTests(MypyTestCase):
             "Revealed type is 'builtins.str",
             self.run_mypy(INHERITED_FIELDS + "reveal_type(myobj.name)"),
         )
+
+
+FIELD_PARAM_OVO = """
+from oslo_versionedobjects import base as ovo_base
+from oslo_versionedobjects import fields
+
+@ovo_base.VersionedObjectRegistry.objectify
+class MyOvo(ovo_base.VersionedObject):
+    fields = {
+        'id': fields.IntegerField(read_only=True),
+        'bad_read_only_field': fields.IntegerField(read_only=123),
+        'nullable_int': fields.IntegerField(nullable=True),
+        'bad_nullable_field': fields.IntegerField(nullable=123),
+        'defaulted_int': fields.IntegerField(default=42),
+        'bad_defaulted_int': fields.Integer(default=[42])
+    }
+
+    def foo(self) -> None:
+        return None
+
+myobj: MyOvo
+"""
+
+
+class OvoFieldParameterTests(MypyTestCase):
+    def test_read_only_field_parameter(self):
+        result = self.run_mypy(FIELD_PARAM_OVO + "reveal_type(myobj.id)")
+
+        # read_only accepted
+        self.assertNotIn(
+            'error: Unexpected keyword argument "read_only"', result
+        )
+        # type of read_only is enforced
+        self.assertIn(
+            'error: Argument "read_only" to "IntegerField" has incompatible '
+            'type "int"; expected "bool"',
+            result,
+        )
+        # read_only flag does not modify the type of the field
+        self.assertIn("Revealed type is 'builtins.int'", result)
+
+    def test_nullable_field_parameter(self):
+        result = self.run_mypy(
+            FIELD_PARAM_OVO + "reveal_type(myobj.nullable_int)"
+        )
+
+        # nullable accepted
+        self.assertNotIn(
+            'error: Unexpected keyword argument "nullable"', result
+        )
+        # type of the nullable is enforced
+        self.assertIn(
+            'error: Argument "nullable" to "IntegerField" has incompatible '
+            'type "int"; expected "bool"',
+            result,
+        )
+        # TODO(gibi): make this work
+        # nullable flag makes the type of the field nullable by adding in
+        # an Optional union type
+        # self.assertIn("Revealed type is 'Optional[builtins.int]", result)
+        # FIXME(gibi): this needs some work in the plugin to make the injected
+        # type Optional if the field is nullable
+        self.assertIn("Revealed type is 'builtins.int'", result)
+
+    def test_default_field_parameter(self):
+        result = self.run_mypy(
+            FIELD_PARAM_OVO + "reveal_type(myobj.defaulted_int)"
+        )
+
+        # default accepted
+        self.assertNotIn(
+            'error: Unexpected keyword argument "default"', result
+        )
+        # type of default is enforced
+        # TODO(gibi): the type of default should be the type of the field
+        # defined this needs some work in the plugin / stub
+        # self.assertIn(
+        #     'error: Argument "default" to "IntegerField" has incompatible '
+        #     'type "List[int]"; expected "int"',
+        #     result
+        # )
+        # default flag does not modify the type of the field
+        self.assertIn("Revealed type is 'builtins.int'", result)
