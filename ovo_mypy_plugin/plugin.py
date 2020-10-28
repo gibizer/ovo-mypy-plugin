@@ -10,6 +10,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import os
+from typing import Dict
 from typing import Optional
 
 from mypy import nodes
@@ -92,7 +93,10 @@ class OsloVersionedObjectPlugin(plugin.Plugin):
         )
 
     def _get_python_type_from_ovo_field_type(
-        self, ctx: plugin.ClassDefContext, ovo_field_type_name: str
+        self,
+        ctx: plugin.ClassDefContext,
+        ovo_field_type_name: str,
+        args: Dict[str, nodes.Expression],
     ) -> types.Type:
 
         try:
@@ -109,7 +113,12 @@ class OsloVersionedObjectPlugin(plugin.Plugin):
             )
             assert field_symbol.node.names["MYPY_TYPE"].node.type is not None
 
-            return field_symbol.node.names["MYPY_TYPE"].node.type
+            type = field_symbol.node.names["MYPY_TYPE"].node.type
+
+            if "nullable" in args and ctx.api.parse_bool(args["nullable"]):
+                return types.UnionType([type, types.NoneType()])
+
+            return type
         except Exception as e:
             self.log(
                 "looking up %s got exception %s"
@@ -141,11 +150,16 @@ class OsloVersionedObjectPlugin(plugin.Plugin):
             assert isinstance(v, nodes.CallExpr)
             assert isinstance(v.callee, nodes.MemberExpr)
             assert v.callee.fullname is not None
+            args = {
+                arg_name: arg
+                for arg, arg_name in zip(v.args, v.arg_names)
+                if arg_name is not None  # skip positional args
+            }
 
             field_type_name = v.callee.fullname
 
             field_type = self._get_python_type_from_ovo_field_type(
-                ctx, field_type_name
+                ctx, field_type_name, args
             )
 
             # insert a typed field definition to the current class

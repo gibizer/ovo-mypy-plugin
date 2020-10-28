@@ -220,7 +220,7 @@ class MyOvo(ovo_base.VersionedObject):
         'nullable_int': fields.IntegerField(nullable=True),
         'bad_nullable_field': fields.IntegerField(nullable=123),
         'defaulted_int': fields.IntegerField(default=42),
-        'bad_defaulted_int': fields.Integer(default=[42])
+        'bad_defaulted_int': fields.IntegerField(default=[42])
     }
 
     def foo(self) -> None:
@@ -262,13 +262,9 @@ class OvoFieldParameterTests(MypyTestCase):
             'type "int"; expected "bool"',
             result,
         )
-        # TODO(gibi): make this work
-        # nullable flag makes the type of the field nullable by adding in
-        # an Optional union type
-        # self.assertIn("Revealed type is 'Optional[builtins.int]", result)
-        # FIXME(gibi): this needs some work in the plugin to make the injected
-        # type Optional if the field is nullable
-        self.assertIn("Revealed type is 'builtins.int'", result)
+        # A nullable=True flag makes the type of the field nullable by
+        # extending the type to Union[type, None]
+        self.assertIn("Revealed type is 'Union[builtins.int, None]", result)
 
     def test_default_field_parameter(self):
         result = self.run_mypy(
